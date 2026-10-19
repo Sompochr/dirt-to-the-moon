@@ -75,7 +75,7 @@ export class Terrain {
     }
     this.limitSlope(H.maxSlope);
 
-    // 4) Flatten the ground under ramps and around bridges.
+    // 4) Straight stretches for building speed, and flat ground under ramps and around bridges.
     const flatten = (xa, xb) => {
       const i0 = this.index(xa);
       const i1 = this.index(xb);
@@ -83,18 +83,32 @@ export class Terrain {
       const hb = h[i1];
       for (let i = i0; i <= i1; i++) h[i] = lerp(ha, hb, (i - i0) / (i1 - i0));
     };
+    for (const s of level.straights || []) flatten(s.x, s.x + s.length);
     for (const r of this.ramps) flatten(r.x - 6, r.x + r.length + 8);
     for (const b of this.bridges) flatten(b.x - 8, b.x + b.length + 8);
+    // Round off the corners where flat parts meet the hills.
+    for (let pass = 0; pass < 4; pass++) {
+      const prev = h.slice();
+      for (let i = 1; i < h.length - 1; i++) h[i] = 0.25 * prev[i - 1] + 0.5 * prev[i] + 0.25 * prev[i + 1];
+    }
 
     // 5) Dig a ravine under each bridge. The bridge deck runs rim to rim.
+    // The walls are never steeper than maxSlope (counting the deck's own tilt),
+    // so the rims stay level with the deck and there is no bump getting on or off.
     for (const b of this.bridges) {
       b.x0 = b.x;
       b.x1 = b.x + b.length;
       b.y0 = this.groundAt(b.x0);
       b.y1 = this.groundAt(b.x1);
+      const tilt = (b.y1 - b.y0) / b.length;
+      const wallIn = 0.95 * (H.maxSlope + tilt);
+      const wallOut = 0.95 * (H.maxSlope - tilt);
       for (let i = this.index(b.x0) + 1; i < this.index(b.x1); i++) {
-        const t = (this.x0 + i * this.dx - b.x0) / b.length;
-        h[i] = lerp(b.y0, b.y1, t) - b.depth * Math.pow(Math.sin(Math.PI * t), 0.6);
+        const x = this.x0 + i * this.dx;
+        const t = (x - b.x0) / b.length;
+        const rim = lerp(b.y0, b.y1, t);
+        const maxDepth = Math.min(wallIn * (x - b.x0), wallOut * (b.x1 - x));
+        h[i] = rim - Math.min(b.depth * Math.pow(Math.sin(Math.PI * t), 0.6), maxDepth);
       }
     }
     this.limitSlope(H.maxSlope);

@@ -16,6 +16,7 @@
 //  ramps     ทางลาดกระโดด { x, length, height }
 //  bridges   สะพาน { x, length, depth, type } type: 'wood' สะพานไม้ยวบได้, 'rail' รางรถเหมือง
 //  boosts    แผ่นเร่งความเร็ว { x, length }
+//  straights ทางตรงไว้ทำความเร็ว { x, length } (ไม่มีเนินในช่วงนี้)
 //  fuelEvery มีถังน้ำมันทุก ๆ กี่เมตร
 //  coinEvery มีกลุ่มเหรียญทุก ๆ กี่เมตร (โดยประมาณ)
 // ===============================================================
@@ -26,8 +27,8 @@ export const LEVELS = [
     name: 'GREEN MEADOW',
     theme: 'meadow',
     length: 520,
-    timeLimit: 110,
-    starTimes: [60, 45],
+    timeLimit: 130,
+    starTimes: [72, 54],
     gravity: 10,
     seed: 7,
     hills: { spacing: [16, 28], height: [1.2, 5.0], rise: 0.012, maxSlope: 0.6, bumps: 0.12 },
@@ -46,8 +47,8 @@ export const LEVELS = [
     name: 'WINDY HILLS',
     theme: 'meadow',
     length: 640,
-    timeLimit: 125,
-    starTimes: [65, 50],
+    timeLimit: 150,
+    starTimes: [78, 60],
     gravity: 10,
     seed: 21,
     hills: { spacing: [14, 24], height: [2.0, 6.0], rise: 0.018, maxSlope: 0.62, bumps: 0.15 },
@@ -68,11 +69,11 @@ export const LEVELS = [
     name: 'OPEN PIT',
     theme: 'mine',
     length: 740,
-    timeLimit: 170,
-    starTimes: [100, 78],
+    timeLimit: 130,
+    starTimes: [80, 61],
     gravity: 10,
     seed: 33,
-    hills: { spacing: [18, 30], height: [2.5, 7.0], rise: 0.015, maxSlope: 0.64, bumps: 0.1, steps: 1.6 },
+    hills: { spacing: [30, 46], height: [2.0, 5.5], rise: 0.015, maxSlope: 0.64, bumps: 0.05, steps: 2.4 },
     ramps: [{ x: 230, length: 6, height: 2.0 }],
     bridges: [
       { x: 380, length: 20, depth: 5, type: 'rail' },
@@ -82,6 +83,12 @@ export const LEVELS = [
       { x: 120, length: 4 },
       { x: 520, length: 4 },
     ],
+    straights: [
+      { x: 95, length: 65 },
+      { x: 255, length: 85 },
+      { x: 495, length: 95 },
+      { x: 645, length: 60 },
+    ],
     fuelEvery: 180,
     coinEvery: 32,
   },
@@ -90,11 +97,11 @@ export const LEVELS = [
     name: 'DEEP SHAFT',
     theme: 'cave',
     length: 800,
-    timeLimit: 155,
-    starTimes: [90, 70],
+    timeLimit: 125,
+    starTimes: [72, 58],
     gravity: 10,
     seed: 47,
-    hills: { spacing: [12, 22], height: [2.0, 6.0], rise: -0.01, maxSlope: 0.66, bumps: 0.22 },
+    hills: { spacing: [26, 42], height: [2.0, 5.5], rise: -0.01, maxSlope: 0.66, bumps: 0.08 },
     ramps: [
       { x: 180, length: 6, height: 1.8 },
       { x: 640, length: 7, height: 2.2 },
@@ -108,6 +115,13 @@ export const LEVELS = [
       { x: 420, length: 4 },
       { x: 720, length: 4 },
     ],
+    straights: [
+      { x: 60, length: 90 },
+      { x: 200, length: 80 },
+      { x: 360, length: 120 },
+      { x: 560, length: 70 },
+      { x: 665, length: 95 },
+    ],
     fuelEvery: 200,
     coinEvery: 30,
   },
@@ -116,8 +130,8 @@ export const LEVELS = [
     name: 'MOON BASE',
     theme: 'moon',
     length: 900,
-    timeLimit: 190,
-    starTimes: [105, 78],
+    timeLimit: 210,
+    starTimes: [108, 84],
     gravity: 4.5,
     antiWheelie: 0.85, // ดวงจันทร์แรงโน้มถ่วงน้อย รถยกล้อง่าย จึงช่วยกดหน้ารถมากกว่าปกติ
     seed: 59,
