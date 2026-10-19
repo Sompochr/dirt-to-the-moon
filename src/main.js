@@ -38,6 +38,7 @@ const app = {
   timeScale: 1,
   autopilot: false,
   garageFrom: 'title',
+  autoFullscreen: !debug,
 };
 
 // ---------- Screen size ----------
@@ -65,14 +66,60 @@ function resize() {
   if (app.portrait) actions.pause();
 }
 
+// ---------- Fullscreen ----------
+// iPhone browsers do not let web pages go fullscreen. There the game is only fullscreen
+// when installed with "Add to Home Screen", so the fullscreen button is hidden.
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+const installedApp = () =>
+  navigator.standalone === true ||
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (window.matchMedia('(display-mode: fullscreen)').matches && !isFullscreen());
+const canFullscreen = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !installedApp();
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const request = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!request) return;
+  try {
+    const p = request.call(el, { navigationUI: 'hide' });
+    if (p && p.then) {
+      p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {});
+    }
+  } catch {
+    // not allowed here (e.g. inside a frame): keep playing in the window
+  }
+}
+
+function exitFullscreen() {
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  try {
+    const p = exit && exit.call(document);
+    if (p && p.catch) p.catch(() => {});
+  } catch {
+    // already left fullscreen
+  }
+}
+
+// On phones and tablets, starting or resuming a race goes back to fullscreen if the player left it.
+function autoFullscreen() {
+  if (app.autoFullscreen && window.matchMedia('(pointer: coarse)').matches && canFullscreen() && !isFullscreen()) {
+    enterFullscreen();
+  }
+}
+
 // ---------- Actions (buttons and keys) ----------
 const click = (fn) => (...args) => {
   sound.play('click');
   fn(...args);
 };
+const race = (fn) =>
+  click((...args) => {
+    autoFullscreen();
+    fn(...args);
+  });
 
 const actions = {
-  play: click(() => go('levels')),
+  play: race(() => go('levels')),
   garage: click(() => {
     app.garageFrom = app.screen;
     go('garage');
@@ -80,7 +127,7 @@ const actions = {
   back: click(() => go('title')),
   garageBack: click(() => go(app.garageFrom || 'title')),
   // After a run the Garage offers to go straight back to racing.
-  garagePlay: click(() => {
+  garagePlay: race(() => {
     if (app.garageFrom !== 'result' || !app.result) go('levels');
     else if (app.result.nextId) startRun(LEVELS.find((l) => l.id === app.result.nextId));
     else startRun(app.level);
@@ -90,11 +137,11 @@ const actions = {
     app.paused = false;
     go('levels');
   }),
-  startLevel: click((id) => startRun(LEVELS.find((l) => l.id === id))),
-  next: click(() => {
+  startLevel: race((id) => startRun(LEVELS.find((l) => l.id === id))),
+  next: race(() => {
     if (app.result && app.result.nextId) startRun(LEVELS.find((l) => l.id === app.result.nextId));
   }),
-  retry: click(() => startRun(app.level)),
+  retry: race(() => startRun(app.level)),
   buy(kind) {
     if (buyUpgrade(save, kind)) {
       sound.play('buy');
@@ -112,6 +159,10 @@ const actions = {
     sound.setMusic(!save.settings.music);
     writeSave(save);
   }),
+  toggleFullscreen: click(() => {
+    if (isFullscreen()) exitFullscreen();
+    else enterFullscreen();
+  }),
   pause() {
     if (app.screen === 'game' && !app.paused) {
       app.paused = true;
@@ -119,7 +170,7 @@ const actions = {
       input.reset();
     }
   },
-  resume: click(() => {
+  resume: race(() => {
     if (app.portrait) return;
     app.paused = false;
     input.playMode = true;
@@ -167,19 +218,6 @@ input.onKey = (code) => {
     if (app.screen === 'title') actions.play();
     else if (app.screen === 'result') (app.result.nextId ? actions.next : actions.retry)();
     else if (app.paused) actions.resume();
-  }
-};
-
-// Go fullscreen on phones after the first tap (Android). iPhone Safari ignores this.
-input.onFirstTouch = () => {
-  const el = document.documentElement;
-  if (debug || !window.matchMedia('(pointer: coarse)').matches || document.fullscreenElement || !el.requestFullscreen) return;
-  try {
-    el.requestFullscreen({ navigationUI: 'hide' })
-      .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'))
-      .catch(() => {});
-  } catch {
-    // fullscreen not allowed here (e.g. inside a frame): play in the normal window
   }
 };
 
@@ -271,6 +309,7 @@ function garagePlayLabel() {
 function draw() {
   const ctx = renderer.ctx;
   const view = { W: renderer.W, H: renderer.H, l: app.safe.l, r: app.safe.r };
+  const fs = canFullscreen() ? (isFullscreen() ? 'exit' : 'enter') : null; // null = no fullscreen button
   ui.begin();
   if (app.portrait) {
     ui.rotate(ctx, view, app.t);
@@ -287,7 +326,7 @@ function draw() {
     renderer.drawScene(tt.terrain, THEMES.meadow, app.t);
     if (app.screen === 'levels') ui.levels(ctx, view, save, actions);
     else if (app.screen === 'garage') ui.garage(ctx, view, save, actions, garagePlayLabel());
-    else ui.title(ctx, view, save, actions, app.t);
+    else ui.title(ctx, view, save, actions, app.t, fs);
   } else {
     renderer.setCamera(app.cam);
     renderer.drawScene(run.terrain, run.theme, app.t);
@@ -296,7 +335,7 @@ function draw() {
     ui.floaters(ctx, run, renderer, view);
     if (app.screen === 'game') {
       ui.hud(ctx, run, view, actions, app.t, !app.paused);
-      if (app.paused) ui.pause(ctx, view, actions, save.settings);
+      if (app.paused) ui.pause(ctx, view, actions, save.settings, fs);
     } else {
       ui.result(ctx, run, app.result, view, actions, app.t, save);
     }
@@ -324,5 +363,5 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' && !debug) {
 }
 
 if (debug) {
-  window.__dttm = { app, input, actions, startRun, renderer, sound, LEVELS };
+  window.__dttm = { app, input, actions, startRun, renderer, sound, ui, LEVELS };
 }

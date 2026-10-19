@@ -10,7 +10,6 @@ export class Input {
     this.keys = new Set();
     this.playMode = false;
     this.size = { W: 1, H: 1 };
-    this.onFirstTouch = null;
     this.onKey = null;
 
     const opts = { passive: false };
@@ -20,7 +19,7 @@ export class Input {
     canvas.addEventListener('pointercancel', (e) => this.up(e, false), opts);
     // Stop the page from scrolling, zooming or showing menus while playing.
     for (const type of ['touchstart', 'touchmove', 'touchend']) {
-      canvas.addEventListener(type, (e) => e.preventDefault(), opts);
+      canvas.addEventListener(type, (e) => e.cancelable && e.preventDefault(), opts);
     }
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -65,12 +64,8 @@ export class Input {
     if (ptr && ptr.zone !== 'ui') ptr.zone = this.zoneAt(this.toInternal(e));
   }
 
+  // Menu buttons fire here, on release: browsers only allow fullscreen and sound from a release.
   up(e, fire) {
-    // Browsers only allow fullscreen from a "release" gesture, so this hook runs here.
-    if (fire && this.onFirstTouch) {
-      this.onFirstTouch();
-      this.onFirstTouch = null;
-    }
     const ptr = this.pointers.get(e.pointerId);
     this.pointers.delete(e.pointerId);
     if (!ptr || ptr.zone !== 'ui') return;

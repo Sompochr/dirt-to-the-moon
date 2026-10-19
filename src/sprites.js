@@ -215,6 +215,8 @@ const SPEAKER_ICON = [
   '...kk....',
   '....k....',
 ];
+const FULLSCREEN_ICON = ['www...www', 'w.......w', 'w.......w', '.........', '.........', '.........', 'w.......w', 'w.......w', 'www...www'];
+const EXIT_FULLSCREEN_ICON = ['..w...w..', '..w...w..', 'www...www', '.........', '.........', '.........', 'www...www', '..w...w..', '..w...w..'];
 const NOTE_ICON = [
   '..kkkkkkk',
   '..kwwwwwk',
@@ -472,6 +474,8 @@ export function buildSprites() {
       lock: fromRows(LOCK_ICON, bikePal),
       speaker: fromRows(SPEAKER_ICON, bikePal),
       note: fromRows(NOTE_ICON, bikePal),
+      fullscreen: fromRows(FULLSCREEN_ICON, bikePal),
+      exitFullscreen: fromRows(EXIT_FULLSCREEN_ICON, bikePal),
     },
   };
 }

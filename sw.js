@@ -1,7 +1,7 @@
 // Service worker: lets the game open without internet after the first visit.
 // It always tries the network first, so new versions show up right away when online.
 
-const CACHE = 'dirt-to-the-moon-v4';
+const CACHE = 'dirt-to-the-moon-v5';
 const FILES = [
   './',
   'index.html',

@@ -140,13 +140,25 @@ export class UI {
     drawText(ctx, m.text, view.W / 2, y + 7, { scale: s, align: 'center', color: C.yellow });
   }
 
-  soundToggles(ctx, x, y, settings, actions) {
-    this.button(ctx, 'sfx', x, y, 30, 26, '', actions.toggleSfx, { style: 'dark', icon: 'speaker', iconOff: !settings.sfx });
-    this.button(ctx, 'music', x + 34, y, 30, 26, '', actions.toggleMusic, { style: 'dark', icon: 'note', iconOff: !settings.music });
+  // Small icon buttons: sound effects, music and, where the browser allows it, fullscreen.
+  // fs: 'enter' / 'exit' for the fullscreen button, or null to leave it out.
+  // align: where x is, relative to the row ('left', 'center' or 'right').
+  iconRow(ctx, x, y, settings, actions, fs, align) {
+    const items = [
+      ['sfx', 'speaker', !settings.sfx, actions.toggleSfx],
+      ['music', 'note', !settings.music, actions.toggleMusic],
+    ];
+    if (fs) items.push(['fullscreen', fs === 'exit' ? 'exitFullscreen' : 'fullscreen', false, actions.toggleFullscreen]);
+    const w = items.length * 34 - 4;
+    let bx = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+    for (const [id, icon, off, onTap] of items) {
+      this.button(ctx, id, bx, y, 30, 26, '', onTap, { style: 'dark', icon, iconOff: off });
+      bx += 34;
+    }
   }
 
   // ---------- Title ----------
-  title(ctx, view, save, actions, t) {
+  title(ctx, view, save, actions, t, fs) {
     const { W, H } = view;
     const L = 8 + view.l;
     const R = 8 + view.r;
@@ -159,7 +171,7 @@ export class UI {
     this.button(ctx, 'garage', W / 2 - 75, 138, 150, 30, 'GARAGE', actions.garage, { style: 'blue' });
 
     this.coins(ctx, L, 8, save.coins);
-    this.soundToggles(ctx, W - R - 64, 6, save.settings, actions);
+    this.iconRow(ctx, W - R, 6, save.settings, actions, fs, 'right');
 
     const hint = 'LEFT = BRAKE    RIGHT = GAS';
     drawText(ctx, hint, W / 2, H - 40, { scale: fit(hint, W - 20), align: 'center', color: C.white });
@@ -365,7 +377,7 @@ export class UI {
     }
 
     // Countdown and first-time hints
-    if (run.state === 'countdown') {
+    if (interactive && run.state === 'countdown') {
       const title = `LEVEL ${run.level.id}: ${run.level.name}`;
       drawText(ctx, title, W / 2, 78, { scale: fit(title, W - 40), align: 'center', color: C.white });
       drawText(ctx, String(Math.ceil(run.countdown)), W / 2, 98, { scale: 5, align: 'center', color: C.yellow });
@@ -404,7 +416,7 @@ export class UI {
     ctx.fillRect(0, 0, view.W, view.H);
   }
 
-  pause(ctx, view, actions, settings) {
+  pause(ctx, view, actions, settings, fs) {
     const { W, H } = view;
     this.dim(ctx, view);
     const pw = 200;
@@ -416,7 +428,7 @@ export class UI {
     this.button(ctx, 'resume', px + 20, py + 40, pw - 40, 30, 'RESUME', actions.resume);
     this.button(ctx, 'restart', px + 20, py + 74, pw - 40, 30, 'RESTART', actions.retry, { style: 'blue' });
     this.button(ctx, 'menu', px + 20, py + 108, pw - 40, 30, 'LEVELS', actions.levels, { style: 'blue' });
-    this.soundToggles(ctx, Math.round(W / 2 - 32), py + 142, settings, actions);
+    this.iconRow(ctx, W / 2, py + 142, settings, actions, fs, 'center');
   }
 
   result(ctx, run, info, view, actions, t, save) {
