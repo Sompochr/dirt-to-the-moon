@@ -123,9 +123,13 @@ input.onKey = (code) => {
 input.onFirstTouch = () => {
   const el = document.documentElement;
   if (debug || !window.matchMedia('(pointer: coarse)').matches || document.fullscreenElement || !el.requestFullscreen) return;
-  el.requestFullscreen({ navigationUI: 'hide' })
-    .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'))
-    .catch(() => {});
+  try {
+    el.requestFullscreen({ navigationUI: 'hide' })
+      .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'))
+      .catch(() => {});
+  } catch {
+    // fullscreen not allowed here (e.g. inside a frame): play in the normal window
+  }
 };
 
 document.addEventListener('visibilitychange', () => {
