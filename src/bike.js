@@ -1,6 +1,6 @@
 // The dirt bike: a chassis (frame + rider) and two wheels on sprung wheel joints.
 
-import { BIKE, PHYSICS } from './config.js';
+import { BIKE, PHYSICS, RULES, UPGRADES } from './config.js';
 
 const pl = window.planck;
 
@@ -13,12 +13,18 @@ export const BIKE_GEOM = {
   head: { x: -0.15, y: 1.05 },
 };
 
-export function baseStats() {
+// Bike numbers after the player's garage upgrades ({ engine, fuel, tires } levels 0-5).
+export function statsFor(up = {}) {
+  const e = up.engine || 0;
   return {
-    engineTorque: BIKE.engineTorque,
-    topSpeed: BIKE.topSpeed,
-    tireFriction: BIKE.tireFriction,
+    engineTorque: BIKE.engineTorque * (1 + UPGRADES.engine.torque * e),
+    topSpeed: BIKE.topSpeed + UPGRADES.engine.topSpeed * e,
+    tireFriction: BIKE.tireFriction + UPGRADES.tires.grip * (up.tires || 0),
   };
+}
+
+export function fuelMaxFor(up = {}) {
+  return RULES.fuelMax + UPGRADES.fuel.tank * (up.fuel || 0);
 }
 
 export class Bike {
@@ -95,6 +101,7 @@ export class Bike {
       inertia += w.getInertia() + w.getMass() * ((p.x - cm.x) ** 2 + (p.y - cm.y) ** 2);
     }
     this.inertia = inertia;
+    this.mass = c.getMass() + this.rear.getMass() + this.front.getMass();
   }
 
   get x() {
@@ -170,7 +177,8 @@ export class Bike {
     // The engine's push tips the bike back. Cancel part of that on the ground so
     // holding the gas does not flip the bike over by itself.
     if (gas && engineOn && !airborne) {
-      this.chassis.applyTorque(BIKE.antiWheelie * rj.getMotorTorque(PHYSICS.hz), true);
+      const k = s.antiWheelie !== undefined ? s.antiWheelie : BIKE.antiWheelie;
+      this.chassis.applyTorque(k * rj.getMotorTorque(PHYSICS.hz), true);
     }
 
     // In the air the rider leans: gas = lean back, brake = lean forward.

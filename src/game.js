@@ -2,23 +2,27 @@
 
 import { RULES, PHYSICS, BIKE } from './config.js';
 import { Terrain } from './terrain.js';
-import { Bike, BIKE_GEOM, baseStats } from './bike.js';
+import { Bike, BIKE_GEOM, statsFor, fuelMaxFor } from './bike.js';
 import { C } from './sprites.js';
-import { THEMES } from './render.js';
+import { clamp } from './util.js';
 
 const pl = window.planck;
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export class Run {
-  constructor(level, stats = baseStats(), fuelMax = RULES.fuelMax) {
+  // upgrades: the garage levels { engine, fuel, tires } (0-5 each)
+  constructor(level, upgrades = {}) {
     this.level = level;
-    this.theme = THEMES[level.theme];
-    this.world = new pl.World({ gravity: { x: 0, y: -level.gravity } });
     this.terrain = new Terrain(level);
+    this.theme = this.terrain.theme;
+    this.world = new pl.World({ gravity: { x: 0, y: -level.gravity } });
     this.terrain.createBodies(this.world);
     const sx = 3;
+    const stats = statsFor(upgrades);
+    stats.engineTorque *= level.engineScale || 1;
+    if (level.antiWheelie !== undefined) stats.antiWheelie = level.antiWheelie;
     this.bike = new Bike(this.world, sx, this.terrain.surfaceAt(sx) + 0.95, stats);
 
+    const fuelMax = fuelMaxFor(upgrades);
     this.fuelMax = fuelMax;
     this.fuel = fuelMax;
     this.elapsed = 0;
@@ -34,6 +38,7 @@ export class Run {
     this.noFuelBestX = 0;
     this.air = { time: 0, startAngle: 0 };
     this.lean = 0;
+    this.boostTimer = 0;
     this.dustAcc = 0;
     this.particles = [];
     this.floaters = [];
@@ -59,7 +64,9 @@ export class Run {
     let gas = false;
     let brake = false;
     if (this.state === 'countdown') {
+      const before = Math.ceil(this.countdown);
       this.countdown -= dt;
+      if (Math.ceil(this.countdown) < before && this.countdown > 0) this.events.push('tick');
       if (this.countdown <= 0) {
         this.state = 'running';
         this.float('GO!', 'big');
@@ -113,6 +120,7 @@ export class Run {
       this.updateFlip(dt, bodyG);
       this.collect();
       this.updateTricks(dt, airborne, bodyG);
+      this.updateBoost(dt, rearG || frontG);
       this.emitDust(dt, gas, rearG);
     }
 
@@ -202,6 +210,38 @@ export class Run {
       }
     }
     a.time = 0;
+  }
+
+  // Boost pads push the bike forward for a moment.
+  updateBoost(dt, onGround) {
+    const b = this.bike;
+    if (onGround && this.terrain.boosts.some((p) => b.x >= p.x0 && b.x <= p.x1)) {
+      if (this.boostTimer <= 0) {
+        this.float('BOOST!', 'good', b.x, b.y + 2);
+        this.events.push('boost');
+      }
+      this.boostTimer = RULES.boostTime;
+    }
+    if (this.boostTimer <= 0) return;
+    this.boostTimer -= dt;
+    const a = b.angle;
+    if (b.forwardSpeed < RULES.boostMaxSpeed) {
+      const f = b.mass * RULES.boostAccel;
+      b.chassis.applyForceToCenter({ x: Math.cos(a) * f, y: Math.sin(a) * f }, true);
+    }
+    // Exhaust flames
+    const p = b.worldPoint({ x: -1.0, y: 0.05 });
+    for (let i = 0; i < 2; i++) {
+      this.particles.push({
+        x: p.x,
+        y: p.y,
+        vx: -Math.cos(a) * (3 + Math.random() * 3),
+        vy: -Math.sin(a) * 3 + Math.random() - 0.5,
+        life: 0.15 + Math.random() * 0.15,
+        color: Math.random() < 0.5 ? C.yellow : C.orange,
+        size: Math.random() < 0.4 ? 2 : 1,
+      });
+    }
   }
 
   emitDust(dt, gas, rearG) {

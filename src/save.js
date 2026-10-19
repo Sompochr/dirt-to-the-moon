@@ -1,20 +1,36 @@
 // Progress is kept in this browser's localStorage (no account needed).
 // Clearing the browser's site data resets it.
 
+import { UPGRADES } from './config.js';
+
 const KEY = 'dirt-to-the-moon-save-v1';
 
 function empty() {
-  return { coins: 0, levels: {} };
+  return {
+    coins: 0,
+    levels: {},
+    upgrades: { engine: 0, fuel: 0, tires: 0 },
+    settings: { sfx: true, music: true },
+  };
 }
 
 export function loadSave() {
+  const base = empty();
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && typeof s === 'object') return { ...empty(), ...s, levels: { ...(s.levels || {}) } };
+    if (s && typeof s === 'object') {
+      return {
+        ...base,
+        ...s,
+        levels: { ...(s.levels || {}) },
+        upgrades: { ...base.upgrades, ...(s.upgrades || {}) },
+        settings: { ...base.settings, ...(s.settings || {}) },
+      };
+    }
   } catch {
     // storage blocked or corrupt: start fresh
   }
-  return empty();
+  return base;
 }
 
 export function writeSave(save) {
@@ -40,4 +56,16 @@ export function recordRun(save, run) {
   }
   writeSave(save);
   return { newBest, best: (save.levels[id] || prev).best };
+}
+
+// Buys the next level of an upgrade. Returns false if maxed out or too expensive.
+export function buyUpgrade(save, kind) {
+  const lvl = save.upgrades[kind] || 0;
+  if (lvl >= UPGRADES.cost.length) return false;
+  const cost = UPGRADES.cost[lvl];
+  if (save.coins < cost) return false;
+  save.coins -= cost;
+  save.upgrades[kind] = lvl + 1;
+  writeSave(save);
+  return true;
 }

@@ -1,7 +1,23 @@
 // ===============================================================
 //  levels.js — ข้อมูลด่าน
 //  แต่ละด่านเป็นตัวเลขล้วน ๆ ปรับความยาว เวลา เกณฑ์ดาว ความสูงเนิน ได้ที่นี่
-//  (Phase 1 มีด่านเดียว ด่าน 2-5 จะเพิ่มใน Phase 2)
+//
+//  theme     ฉาก: 'meadow' ทุ่งหญ้า, 'mine' เหมืองเปิด, 'cave' อุโมงค์ใต้ดิน, 'moon' ดวงจันทร์
+//  length    ระยะจากจุดเริ่มถึงเส้นชัย (เมตร)
+//  timeLimit เวลาที่มี (วินาที) หมดเวลา = แพ้
+//  starTimes เวลาที่ต้องทำได้เพื่อได้ [2 ดาว, 3 ดาว] (วินาที)
+//  gravity   แรงโน้มถ่วง (โลก = 10)
+//  engineScale / antiWheelie  (ไม่ใส่ก็ได้) ปรับแรงเครื่องและการกดหน้ารถเฉพาะด่านนี้
+//  seed      เลขสุ่มรูปร่างเนิน เปลี่ยนเลขนี้ = ได้เนินแบบใหม่
+//  hills     spacing = ระยะห่างยอดเนิน, height = ความสูงเนิน ต้นด่าน→ท้ายด่าน,
+//            rise = ทางชันขึ้น(+)/ลง(-) ต่อเมตร, maxSlope = ความชันสูงสุด,
+//            bumps = ลูกระนาดเล็ก ๆ, steps = ทำเนินเป็นขั้นบันได (เมตร)
+//  craters   หลุมอุกกาบาต: every = ระยะห่าง, width = กว้าง, depth = ลึก
+//  ramps     ทางลาดกระโดด { x, length, height }
+//  bridges   สะพาน { x, length, depth, type } type: 'wood' สะพานไม้ยวบได้, 'rail' รางรถเหมือง
+//  boosts    แผ่นเร่งความเร็ว { x, length }
+//  fuelEvery มีถังน้ำมันทุก ๆ กี่เมตร
+//  coinEvery มีกลุ่มเหรียญทุก ๆ กี่เมตร (โดยประมาณ)
 // ===============================================================
 
 export const LEVELS = [
@@ -9,24 +25,116 @@ export const LEVELS = [
     id: 1,
     name: 'GREEN MEADOW',
     theme: 'meadow',
-    length: 520,          // ระยะจากจุดเริ่มถึงเส้นชัย (เมตร)
-    timeLimit: 110,       // เวลาที่มี (วินาที) หมดเวลา = แพ้
-    starTimes: [65, 50],  // เวลาที่ต้องทำได้เพื่อได้ [2 ดาว, 3 ดาว] (วินาที)
-    gravity: 10,          // แรงโน้มถ่วง (โลก = 10, ดวงจันทร์จะน้อยกว่านี้มาก)
-    seed: 7,              // เลขสุ่มรูปร่างเนิน เปลี่ยนเลขนี้ = ได้เนินแบบใหม่
-    hills: {
-      spacing: [16, 28],  // ระยะห่างระหว่างยอดเนิน (เมตร) [น้อยสุด, มากสุด]
-      height: [1.2, 5.0], // ความสูงเนิน ช่วงต้นด่าน → ท้ายด่าน (เมตร)
-      rise: 0.012,        // ทางค่อย ๆ สูงขึ้นเรื่อย ๆ (เมตรต่อเมตร)
-      maxSlope: 0.62,     // ความชันสูงสุด (0.62 ≈ 32 องศา)
-      bumps: 0.12,        // ลูกระนาดเล็ก ๆ บนพื้น (เมตร)
-    },
-    ramps: [              // ทางลาดกระโดด: x = ตำแหน่ง, length = ยาว, height = สูง
+    length: 520,
+    timeLimit: 110,
+    starTimes: [60, 45],
+    gravity: 10,
+    seed: 7,
+    hills: { spacing: [16, 28], height: [1.2, 5.0], rise: 0.012, maxSlope: 0.6, bumps: 0.12 },
+    ramps: [
       { x: 92, length: 5, height: 1.2 },
       { x: 268, length: 6, height: 1.7 },
       { x: 410, length: 6, height: 2.0 },
     ],
-    fuelEvery: 140,       // มีถังน้ำมันทุก ๆ กี่เมตร
-    coinEvery: 34,        // มีกลุ่มเหรียญทุก ๆ กี่เมตร (โดยประมาณ)
+    bridges: [],
+    boosts: [],
+    fuelEvery: 140,
+    coinEvery: 34,
+  },
+  {
+    id: 2,
+    name: 'WINDY HILLS',
+    theme: 'meadow',
+    length: 640,
+    timeLimit: 125,
+    starTimes: [65, 50],
+    gravity: 10,
+    seed: 21,
+    hills: { spacing: [14, 24], height: [2.0, 6.0], rise: 0.018, maxSlope: 0.62, bumps: 0.15 },
+    ramps: [
+      { x: 140, length: 6, height: 1.8 },
+      { x: 470, length: 7, height: 2.2 },
+    ],
+    bridges: [
+      { x: 290, length: 16, depth: 3.5, type: 'wood' },
+      { x: 560, length: 14, depth: 3, type: 'wood' },
+    ],
+    boosts: [],
+    fuelEvery: 160,
+    coinEvery: 30,
+  },
+  {
+    id: 3,
+    name: 'OPEN PIT',
+    theme: 'mine',
+    length: 740,
+    timeLimit: 170,
+    starTimes: [100, 78],
+    gravity: 10,
+    seed: 33,
+    hills: { spacing: [18, 30], height: [2.5, 7.0], rise: 0.015, maxSlope: 0.64, bumps: 0.1, steps: 1.6 },
+    ramps: [{ x: 230, length: 6, height: 2.0 }],
+    bridges: [
+      { x: 380, length: 20, depth: 5, type: 'rail' },
+      { x: 610, length: 16, depth: 4, type: 'rail' },
+    ],
+    boosts: [
+      { x: 120, length: 4 },
+      { x: 520, length: 4 },
+    ],
+    fuelEvery: 180,
+    coinEvery: 32,
+  },
+  {
+    id: 4,
+    name: 'DEEP SHAFT',
+    theme: 'cave',
+    length: 800,
+    timeLimit: 155,
+    starTimes: [90, 70],
+    gravity: 10,
+    seed: 47,
+    hills: { spacing: [12, 22], height: [2.0, 6.0], rise: -0.01, maxSlope: 0.66, bumps: 0.22 },
+    ramps: [
+      { x: 180, length: 6, height: 1.8 },
+      { x: 640, length: 7, height: 2.2 },
+    ],
+    bridges: [
+      { x: 300, length: 18, depth: 5, type: 'rail' },
+      { x: 520, length: 22, depth: 6, type: 'rail' },
+    ],
+    boosts: [
+      { x: 90, length: 4 },
+      { x: 420, length: 4 },
+      { x: 720, length: 4 },
+    ],
+    fuelEvery: 200,
+    coinEvery: 30,
+  },
+  {
+    id: 5,
+    name: 'MOON BASE',
+    theme: 'moon',
+    length: 900,
+    timeLimit: 210,
+    starTimes: [130, 105],
+    gravity: 4.5,
+    engineScale: 0.75, // ดวงจันทร์: เครื่องแรงน้อยลง ล้อจะได้ไม่ฟรีและไม่ยกง่ายเกินไป
+    antiWheelie: 0.75,
+    seed: 59,
+    hills: { spacing: [20, 36], height: [2.0, 8.0], rise: 0.02, maxSlope: 0.6, bumps: 0.1 },
+    craters: { every: [26, 46], width: [8, 16], depth: [1.5, 3.0] },
+    ramps: [
+      { x: 160, length: 7, height: 2.4 },
+      { x: 430, length: 8, height: 3.0 },
+      { x: 720, length: 8, height: 3.2 },
+    ],
+    bridges: [],
+    boosts: [
+      { x: 300, length: 5 },
+      { x: 600, length: 5 },
+    ],
+    fuelEvery: 220,
+    coinEvery: 30,
   },
 ];

@@ -1,7 +1,7 @@
 // All pixel art, either drawn as text grids or generated from simple shapes.
 // Palette based on "Sweetie 16" by GrafxKid.
 
-import { mulberry32 } from './terrain.js';
+import { mulberry32, noise } from './util.js';
 
 export const C = {
   black: '#1a1c2c',
@@ -179,6 +179,54 @@ const STAR = [
 const CLOCK = ['.kkkkk.', 'kwwkwwk', 'kwwkwwk', 'kwwkkwk', 'kwwwwwk', 'kwwwwwk', '.kkkkk.'];
 const FUEL_ICON = ['.kkk...', '.kyk...', 'kkkkkkk', 'krrrrrk', 'krwrwrk', 'krrwrrk', 'krwrwrk', 'kkkkkkk'];
 
+const ENGINE_ICON = [
+  '...kkkkkkk...',
+  '...kmmmmmk...',
+  '.kkkkkkkkkkk.',
+  'kkGmGmGmGmGkk',
+  'kGGGGGGGGGGGk',
+  'kGmmmmmmmmmGk',
+  'kGGGGGGGGGGGk',
+  'kGmmmmmmmmmGk',
+  'kGGGGGGGGGGGk',
+  '.kkkkkkkkkkk.',
+  '..kk.....kk..',
+];
+const LOCK_ICON = [
+  '..kkkkk..',
+  '.kk...kk.',
+  '.k.....k.',
+  '.k.....k.',
+  'kkkkkkkkk',
+  'kyyyyyyyk',
+  'kyyykyyyk',
+  'kyyykyyyk',
+  'kyyyyyyyk',
+  'kkkkkkkkk',
+];
+const SPEAKER_ICON = [
+  '....k....',
+  '...kk....',
+  'kkkwk.w..',
+  'kwwwk..w.',
+  'kwwwk..w.',
+  'kwwwk..w.',
+  'kkkwk.w..',
+  '...kk....',
+  '....k....',
+];
+const NOTE_ICON = [
+  '..kkkkkkk',
+  '..kwwwwwk',
+  '..kwkkkwk',
+  '..kwk.kwk',
+  '..kwk.kwk',
+  'kkkwkkkwk',
+  'kwwwkwwwk',
+  'kwwwkwwwk',
+  'kkkkkkkkk',
+];
+
 // ---------- Generated sprites ----------
 function makeWheel(r) {
   const size = Math.ceil(r * 2);
@@ -288,7 +336,25 @@ function makeDirtTile(seed, base, darkC, lightC) {
   });
 }
 
-const PROP_PAL = { a: C.lime, g: C.teal, y: C.yellow, w: C.white, p: '#f08bb0', k: C.dark, m: C.silver, G: C.gray, l: C.green };
+const PROP_PAL = {
+  a: C.lime,
+  g: C.teal,
+  y: C.yellow,
+  w: C.white,
+  p: '#f08bb0',
+  k: C.dark,
+  K: C.black,
+  m: C.silver,
+  G: C.gray,
+  l: C.green,
+  n: '#a0663f',
+  N: '#5c3520',
+  o: C.orange,
+  c: C.cyan,
+  C: C.sky,
+  v: '#b05cc8',
+  r: '#ff5050',
+};
 
 function makeProps() {
   return {
@@ -300,7 +366,67 @@ function makeProps() {
     ],
     rock: fromRows(['..kkk.', '.kmmmk', 'kmmGGk', 'kGGGGk'], PROP_PAL),
     bush: fromRows(['...llll...', '.llaallll.', 'llaallllgl', 'llllllgggl', '.lllggggl.'], PROP_PAL),
+    barrel: fromRows(['.KKKKK.', 'KyyyyyK', 'KKKKKKK', 'KyyyyyK', 'KyyKyyK', 'KyyyyyK', 'KKKKKKK', 'KyyyyyK', '.KKKKK.'], PROP_PAL),
+    crate: fromRows(['KKKKKKKK', 'KNnnnnNK', 'KnNnnNnK', 'KnnNNnnK', 'KnnNNnnK', 'KnNnnNnK', 'KNnnnnNK', 'KKKKKKKK'], PROP_PAL),
+    cone: fromRows(['...K...', '..KoK..', '..KwK..', '.KoooK.', '.KwwwK.', 'KoooooK', 'KKKKKKK'], PROP_PAL),
+    crystal: [
+      fromRows(['..KK..', '.KccK.', '.KcCK.', 'KccCCK', 'KcccCK', 'KcccCK', '.KccCK', 'KKKKKK'], PROP_PAL),
+      fromRows(['..KK..', '.KppK.', '.KpvK.', 'KppvvK', 'KpppvK', 'KpppvK', '.KppvK', 'KKKKKK'], PROP_PAL),
+    ],
+    moonrock: fromRows(['..kkkk..', '.kmmmmk.', 'kmmGmmGk', 'kmGGmGGk', 'kkkkkkkk'], PROP_PAL),
+    mast: fromRows(['...r...', '...k...', '.kkkkk.', '...k...', '..kkk..', '...k...', '.kkkkk.', '..k.k..', '.k...k.', 'k.....k'], PROP_PAL),
   };
+}
+
+// Mine headframe (the tower over a mine shaft), drawn as a dark silhouette.
+function makeHeadframe(color) {
+  const w = 23;
+  const h = 34;
+  const c = canvas(w, h);
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  const line = (x0, y0, x1, y1) => {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    for (let i = 0; i <= n; i++) g.fillRect(Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n), 1, 1);
+  };
+  line(1, h - 1, 9, 8);
+  line(2, h - 1, 10, 8);
+  line(21, h - 1, 13, 8);
+  line(20, h - 1, 12, 8);
+  for (const y of [16, 24]) line(4, y, 19, y);
+  line(4, 24, 17, 16);
+  line(6, 16, 18, 24);
+  g.fillRect(8, 7, 7, 2);
+  for (let a = 0; a < 40; a++) {
+    const t = (a / 40) * Math.PI * 2;
+    g.fillRect(Math.round(11.5 + Math.cos(t) * 4), Math.round(4 + Math.sin(t) * 3.5), 1, 1);
+  }
+  g.fillRect(11, 1, 1, 7);
+  g.fillRect(0, h - 2, w, 2);
+  return c;
+}
+
+function makeDome() {
+  return generate(34, 20, (x, y) => {
+    const dx = x + 0.5 - 17;
+    const dy = y + 0.5 - 18;
+    const d = Math.hypot(dx, dy * 1.15);
+    if (y >= 17) return y === 17 ? '#3c4056' : '#2b2f40';
+    if (d > 16) return x === 30 && y < 17 && y > 4 ? '#8a91a1' : x === 30 && y === 4 ? '#ff5050' : null;
+    if (d > 15) return '#2b2f40';
+    if (y === 10 && Math.abs(dx) < 12) return Math.floor(x / 3) % 2 ? '#ffcd75' : '#3c4056';
+    return dx + dy < -6 ? '#c9d0db' : '#9aa1b0';
+  });
+}
+
+function makeEarth(r) {
+  return makeCircle(r, (dx, dy, d) => {
+    const land = noise((dx + 20) / 4, 3) + noise((dy + 20) / 3.5, 4) > 1.05;
+    const cloud = noise((dx + dy + 40) / 2.5, 9) > 0.78;
+    let col = cloud ? C.white : land ? C.green : C.blue;
+    if (dx + dy > r * 0.55) col = cloud ? C.silver : land ? C.teal : C.navy;
+    return d > r - 1 ? '#8fb8ff' : col;
+  });
 }
 
 export function buildSprites() {
@@ -331,9 +457,21 @@ export function buildSprites() {
       return d > 16.5 ? C.silver : dx + dy > 10 ? '#c9d6de' : C.white;
     }),
     trees: [makeTree('round', 1), makeTree('pine', 2), makeTree('round', 5), makeTree('pine', 9)],
+    headframe: makeHeadframe('#6e3b2e'),
+    dome: makeDome(),
+    earth: makeEarth(11),
     props: makeProps(),
     dirt: {
       meadow: makeDirtTile(42, '#8b5a3c', '#6b3f2a', '#a9714b'),
+      mine: makeDirtTile(17, '#b06a3b', '#8a4e2b', '#d4884f'),
+      cave: makeDirtTile(23, '#3a3450', '#2a253b', '#57507a'),
+      moon: makeDirtTile(61, '#9aa1b0', '#7d8494', '#c4c9d3'),
+    },
+    icons: {
+      engine: fromRows(ENGINE_ICON, bikePal),
+      lock: fromRows(LOCK_ICON, bikePal),
+      speaker: fromRows(SPEAKER_ICON, bikePal),
+      note: fromRows(NOTE_ICON, bikePal),
     },
   };
 }

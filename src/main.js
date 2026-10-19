@@ -1,14 +1,16 @@
-// Entry point: screen size, game loop, camera and switching between screens.
+// Entry point: screen size, game loop, camera, sound and switching between screens.
 
 import { VIEW, PHYSICS } from './config.js';
 import { LEVELS } from './levels.js';
+import { THEMES } from './themes.js';
 import { buildSprites } from './sprites.js';
-import { Renderer, THEMES } from './render.js';
+import { Renderer } from './render.js';
 import { Terrain } from './terrain.js';
 import { Run } from './game.js';
 import { UI } from './ui.js';
 import { Input } from './input.js';
-import { loadSave, recordRun } from './save.js';
+import { Sound } from './audio.js';
+import { loadSave, writeSave, recordRun, buyUpgrade } from './save.js';
 
 const PPM = VIEW.ppm;
 const canvas = document.getElementById('game');
@@ -17,19 +19,22 @@ const renderer = new Renderer(canvas, sprites);
 const ui = new UI(sprites);
 const input = new Input(canvas, ui);
 const debug = new URLSearchParams(location.search).has('debug');
+const save = loadSave();
+const sound = new Sound(save.settings);
 
 const app = {
-  screen: 'title', // title | game | result
+  screen: 'title', // title | levels | garage | game | result
   paused: false,
   portrait: false,
   level: LEVELS[0],
-  save: loadSave(),
+  save,
   run: null,
   result: null,
   cam: { x: 0, y: 0, refY: 0 },
   title: { terrain: new Terrain(LEVELS[0]), x: 0, y: null },
   safe: { l: 0, r: 0 },
   t: 0,
+  dt: 0,
   timeScale: 1,
   autopilot: false,
 };
@@ -60,19 +65,42 @@ function resize() {
 }
 
 // ---------- Actions (buttons and keys) ----------
+const click = (fn) => (...args) => {
+  sound.play('click');
+  fn(...args);
+};
+
 const actions = {
-  play() {
-    startRun();
-  },
-  retry() {
-    startRun();
-  },
-  menu() {
-    app.screen = 'title';
+  play: click(() => go('levels')),
+  garage: click(() => go('garage')),
+  back: click(() => go('title')),
+  levels: click(() => {
     app.run = null;
     app.paused = false;
-    input.playMode = false;
+    go('levels');
+  }),
+  startLevel: click((id) => startRun(LEVELS.find((l) => l.id === id))),
+  next: click(() => {
+    if (app.result && app.result.nextId) startRun(LEVELS.find((l) => l.id === app.result.nextId));
+  }),
+  retry: click(() => startRun(app.level)),
+  buy(kind) {
+    if (buyUpgrade(save, kind)) {
+      sound.play('buy');
+      ui.toast('UPGRADED!');
+    } else {
+      sound.play('deny');
+      ui.toast('NOT ENOUGH COINS');
+    }
   },
+  toggleSfx: click(() => {
+    sound.setSfx(!save.settings.sfx);
+    writeSave(save);
+  }),
+  toggleMusic: click(() => {
+    sound.setMusic(!save.settings.music);
+    writeSave(save);
+  }),
   pause() {
     if (app.screen === 'game' && !app.paused) {
       app.paused = true;
@@ -80,29 +108,39 @@ const actions = {
       input.reset();
     }
   },
-  resume() {
+  resume: click(() => {
     if (app.portrait) return;
     app.paused = false;
     input.playMode = true;
-  },
+  }),
   flip() {
     if (app.run) app.run.flip();
   },
 };
 
-function startRun() {
-  app.run = new Run(app.level);
+function go(screen) {
+  app.screen = screen;
+  input.playMode = false;
+  if (screen !== 'game' && screen !== 'result') sound.music('meadow');
+}
+
+function startRun(level) {
+  app.level = level;
+  app.run = new Run(level, save.upgrades);
   app.screen = 'game';
   app.paused = false;
   app.result = null;
   input.reset();
   input.playMode = true;
   updateCamera(0, true);
+  sound.music(THEMES[level.theme].music);
 }
 
 function showResult() {
-  const r = recordRun(app.save, app.run);
-  app.result = { ...r, total: app.save.coins, shownAt: app.t };
+  const r = recordRun(save, app.run);
+  const idx = LEVELS.indexOf(app.level);
+  const next = app.run.state === 'finished' && LEVELS[idx + 1];
+  app.result = { ...r, total: save.coins, shownAt: app.t, nextId: next ? next.id : null };
   app.screen = 'result';
   input.playMode = false;
 }
@@ -114,7 +152,8 @@ input.onKey = (code) => {
   } else if (code === 'Space' || code === 'KeyF') {
     actions.flip();
   } else if (code === 'Enter') {
-    if (app.screen === 'title' || app.screen === 'result') startRun();
+    if (app.screen === 'title') actions.play();
+    else if (app.screen === 'result') (app.result.nextId ? actions.next : actions.retry)();
     else if (app.paused) actions.resume();
   }
 };
@@ -132,8 +171,16 @@ input.onFirstTouch = () => {
   }
 };
 
+// Sound may only start after a touch, click or key press.
+for (const type of ['pointerup', 'touchend', 'click', 'keydown']) {
+  window.addEventListener(type, () => sound.unlock(), { passive: true });
+}
+
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) actions.pause();
+  if (document.hidden) {
+    actions.pause();
+    sound.suspend();
+  }
 });
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -174,24 +221,34 @@ let last = performance.now();
 let acc = 0;
 
 function update(dt) {
-  if (app.portrait) return;
-  if (app.screen === 'title') {
-    app.title.x += dt * 5;
+  if (app.portrait) {
+    sound.engine(false);
     return;
   }
   const run = app.run;
-  if (!run || app.paused) return;
-  const h = 1 / PHYSICS.hz;
-  acc += dt * app.timeScale;
-  let n = 0;
-  while (acc >= h && n < 60) {
-    run.step(h, app.autopilot && run.running ? autopilot(run) : input);
-    acc -= h;
-    n++;
+  const inRun = (app.screen === 'game' || app.screen === 'result') && run;
+  if (!inRun) {
+    app.title.x += dt * 5;
+    sound.engine(false);
+    return;
   }
-  if (acc > h) acc = 0;
-  updateCamera(dt * app.timeScale);
-  if (app.screen === 'game' && (run.state === 'finished' || run.state === 'failed') && run.endTimer > 1.2) showResult();
+  if (!app.paused) {
+    const h = 1 / PHYSICS.hz;
+    acc += dt * app.timeScale;
+    let n = 0;
+    while (acc >= h && n < 60) {
+      run.step(h, app.autopilot && run.running ? autopilot(run) : input);
+      acc -= h;
+      n++;
+    }
+    if (acc > h) acc = 0;
+    updateCamera(dt * app.timeScale);
+    for (const e of run.events) sound.play(e);
+    run.events.length = 0;
+    if (app.screen === 'game' && (run.state === 'finished' || run.state === 'failed') && run.endTimer > 1.2) showResult();
+  }
+  const engineOn = app.screen === 'game' && !app.paused && (run.running || run.state === 'countdown');
+  sound.engine(engineOn, run.gas, run.bike.rear.getAngularVelocity());
 }
 
 function draw() {
@@ -202,7 +259,8 @@ function draw() {
     ui.rotate(ctx, view, app.t);
     return;
   }
-  if (app.screen === 'title') {
+  const run = app.run;
+  if (!run || (app.screen !== 'game' && app.screen !== 'result')) {
     const tt = app.title;
     const span = tt.terrain.finishX - 40;
     const x = (tt.x % span) - 10;
@@ -210,35 +268,45 @@ function draw() {
     tt.y = tt.y === null || Math.abs(ty - tt.y) > 20 ? ty : tt.y + (ty - tt.y) * 0.03;
     renderer.setCamera({ x, y: tt.y, refY: tt.y });
     renderer.drawScene(tt.terrain, THEMES.meadow, app.t);
-    ui.title(ctx, view, app.save, app.level, actions, app.t);
-    return;
-  }
-  const run = app.run;
-  renderer.setCamera(app.cam);
-  renderer.drawScene(run.terrain, run.theme, app.t);
-  renderer.drawBike(run.bike, run.lean);
-  renderer.drawParticles(run.particles);
-  ui.floaters(ctx, run, renderer, view);
-  if (app.screen === 'game') {
-    ui.hud(ctx, run, view, actions, app.t, !app.paused);
-    if (app.paused) ui.pause(ctx, view, actions);
+    if (app.screen === 'levels') ui.levels(ctx, view, save, actions);
+    else if (app.screen === 'garage') ui.garage(ctx, view, save, actions);
+    else ui.title(ctx, view, save, actions, app.t);
   } else {
-    ui.result(ctx, run, app.result, view, actions, app.t);
+    renderer.setCamera(app.cam);
+    renderer.drawScene(run.terrain, run.theme, app.t);
+    renderer.drawBike(run.bike, run.lean);
+    renderer.drawParticles(run.particles);
+    renderer.drawDarkness(run.theme, run.terrain, run.bike);
+    ui.floaters(ctx, run, renderer, view);
+    if (app.screen === 'game') {
+      ui.hud(ctx, run, view, actions, app.t, !app.paused);
+      if (app.paused) ui.pause(ctx, view, actions, save.settings);
+    } else {
+      ui.result(ctx, run, app.result, view, actions, app.t);
+    }
   }
+  ui.drawToast(ctx, view, app.dt);
 }
 
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   app.t += dt;
+  app.dt = dt;
   update(dt);
   draw();
   requestAnimationFrame(frame);
 }
 
 resize();
+sound.music('meadow');
 requestAnimationFrame(frame);
 
+// Offline play and "Add to Home Screen" support (not on the local test server).
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !debug) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 if (debug) {
-  window.__dttm = { app, input, actions, startRun, renderer };
+  window.__dttm = { app, input, actions, startRun, renderer, sound, LEVELS };
 }
