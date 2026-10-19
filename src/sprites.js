@@ -464,7 +464,7 @@ export function buildSprites() {
     dirt: {
       meadow: makeDirtTile(42, '#8b5a3c', '#6b3f2a', '#a9714b'),
       mine: makeDirtTile(17, '#b06a3b', '#8a4e2b', '#d4884f'),
-      cave: makeDirtTile(23, '#3a3450', '#2a253b', '#57507a'),
+      cave: makeDirtTile(23, '#4f4870', '#3d3759', '#6d6696'),
       moon: makeDirtTile(61, '#9aa1b0', '#7d8494', '#c4c9d3'),
     },
     icons: {

@@ -37,6 +37,7 @@ const app = {
   dt: 0,
   timeScale: 1,
   autopilot: false,
+  garageFrom: 'title',
 };
 
 // ---------- Screen size ----------
@@ -72,8 +73,18 @@ const click = (fn) => (...args) => {
 
 const actions = {
   play: click(() => go('levels')),
-  garage: click(() => go('garage')),
+  garage: click(() => {
+    app.garageFrom = app.screen;
+    go('garage');
+  }),
   back: click(() => go('title')),
+  garageBack: click(() => go(app.garageFrom || 'title')),
+  // After a run the Garage offers to go straight back to racing.
+  garagePlay: click(() => {
+    if (app.garageFrom !== 'result' || !app.result) go('levels');
+    else if (app.result.nextId) startRun(LEVELS.find((l) => l.id === app.result.nextId));
+    else startRun(app.level);
+  }),
   levels: click(() => {
     app.run = null;
     app.paused = false;
@@ -121,7 +132,8 @@ const actions = {
 function go(screen) {
   app.screen = screen;
   input.playMode = false;
-  if (screen !== 'game' && screen !== 'result') sound.music('meadow');
+  if (screen === 'result' && app.run) sound.music(app.run.theme.music);
+  else if (screen !== 'game') sound.music('meadow');
 }
 
 function startRun(level) {
@@ -251,6 +263,11 @@ function update(dt) {
   sound.engine(engineOn, run.gas, run.bike.rear.getAngularVelocity());
 }
 
+function garagePlayLabel() {
+  if (app.garageFrom !== 'result' || !app.result) return 'LEVELS';
+  return app.result.nextId ? 'NEXT LEVEL' : 'RETRY';
+}
+
 function draw() {
   const ctx = renderer.ctx;
   const view = { W: renderer.W, H: renderer.H, l: app.safe.l, r: app.safe.r };
@@ -269,20 +286,19 @@ function draw() {
     renderer.setCamera({ x, y: tt.y, refY: tt.y });
     renderer.drawScene(tt.terrain, THEMES.meadow, app.t);
     if (app.screen === 'levels') ui.levels(ctx, view, save, actions);
-    else if (app.screen === 'garage') ui.garage(ctx, view, save, actions);
+    else if (app.screen === 'garage') ui.garage(ctx, view, save, actions, garagePlayLabel());
     else ui.title(ctx, view, save, actions, app.t);
   } else {
     renderer.setCamera(app.cam);
     renderer.drawScene(run.terrain, run.theme, app.t);
     renderer.drawBike(run.bike, run.lean);
     renderer.drawParticles(run.particles);
-    renderer.drawDarkness(run.theme, run.terrain, run.bike);
     ui.floaters(ctx, run, renderer, view);
     if (app.screen === 'game') {
       ui.hud(ctx, run, view, actions, app.t, !app.paused);
       if (app.paused) ui.pause(ctx, view, actions, save.settings);
     } else {
-      ui.result(ctx, run, app.result, view, actions, app.t);
+      ui.result(ctx, run, app.result, view, actions, app.t, save);
     }
   }
   ui.drawToast(ctx, view, app.dt);

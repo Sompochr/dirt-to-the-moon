@@ -116,14 +116,13 @@ export const LEVELS = [
     name: 'MOON BASE',
     theme: 'moon',
     length: 900,
-    timeLimit: 210,
-    starTimes: [130, 105],
+    timeLimit: 190,
+    starTimes: [105, 78],
     gravity: 4.5,
-    engineScale: 0.75, // ดวงจันทร์: เครื่องแรงน้อยลง ล้อจะได้ไม่ฟรีและไม่ยกง่ายเกินไป
-    antiWheelie: 0.75,
+    antiWheelie: 0.85, // ดวงจันทร์แรงโน้มถ่วงน้อย รถยกล้อง่าย จึงช่วยกดหน้ารถมากกว่าปกติ
     seed: 59,
-    hills: { spacing: [20, 36], height: [2.0, 8.0], rise: 0.02, maxSlope: 0.6, bumps: 0.1 },
-    craters: { every: [26, 46], width: [8, 16], depth: [1.5, 3.0] },
+    hills: { spacing: [20, 36], height: [1.5, 6.0], rise: 0.02, maxSlope: 0.55, bumps: 0.03 },
+    craters: { every: [26, 46], width: [8, 16], depth: [0.45, 0.9] },
     ramps: [
       { x: 160, length: 7, height: 2.4 },
       { x: 430, length: 8, height: 3.0 },
@@ -134,7 +133,7 @@ export const LEVELS = [
       { x: 300, length: 5 },
       { x: 600, length: 5 },
     ],
-    fuelEvery: 220,
+    fuelEvery: 180,
     coinEvery: 30,
   },
 ];

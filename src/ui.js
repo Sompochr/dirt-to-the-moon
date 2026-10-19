@@ -213,7 +213,8 @@ export class UI {
   }
 
   // ---------- Garage ----------
-  garage(ctx, view, save, actions) {
+  // playLabel: the right-hand button, e.g. 'LEVELS', or 'NEXT LEVEL' / 'RETRY' when opened after a run.
+  garage(ctx, view, save, actions, playLabel = 'LEVELS') {
     const { W, H } = view;
     const L = 8 + view.l;
     const R = 8 + view.r;
@@ -271,8 +272,11 @@ export class UI {
       }
     });
 
-    this.button(ctx, 'back', L, H - 36, 110, 30, 'BACK', actions.back, { style: 'blue' });
-    this.button(ctx, 'levels', W - R - 110, H - 36, 110, 30, 'LEVELS', actions.play, { style: 'blue' });
+    this.button(ctx, 'back', L, H - 36, 110, 30, 'BACK', actions.garageBack, { style: 'blue' });
+    const pw = Math.max(110, textWidth(playLabel, 2) + 20);
+    this.button(ctx, 'garage-play', W - R - pw, H - 36, pw, 30, playLabel, actions.garagePlay, {
+      style: playLabel === 'LEVELS' ? 'blue' : 'green',
+    });
   }
 
   // ---------- In-game HUD ----------
@@ -415,12 +419,12 @@ export class UI {
     this.soundToggles(ctx, Math.round(W / 2 - 32), py + 142, settings, actions);
   }
 
-  result(ctx, run, info, view, actions, t) {
+  result(ctx, run, info, view, actions, t, save) {
     const { W, H } = view;
     const sp = this.sprites;
     this.dim(ctx, view);
     const pw = Math.min(W - 16, 310);
-    const ph = 206;
+    const ph = 232;
     const px = Math.round((W - pw) / 2);
     const py = Math.round((H - ph) / 2);
     panel(ctx, px, py, pw, ph, C.navy, C.black, C.blue);
@@ -455,18 +459,33 @@ export class UI {
     const goal = `** ${fmtTime(two)}   *** ${fmtTime(three)}`;
     drawText(ctx, goal, W / 2, y + 2, { scale: fit(goal, pw - 16), align: 'center', color: C.gray, shadow: null });
 
-    const by = py + ph - 38;
-    const hasNext = won && info.nextId;
-    const n = hasNext ? 3 : 2;
-    const bw = Math.floor((pw - 16 - (n - 1) * 8) / n);
-    let bx = px + 8;
-    if (hasNext) {
-      this.button(ctx, 'next', bx, by, bw, 30, 'NEXT', actions.next, { style: 'green' });
-      bx += bw + 8;
+    // Buttons in a 2x2 grid: main action and UPGRADE on top, the rest below.
+    const bw = Math.floor((pw - 24) / 2);
+    const c1 = px + 8;
+    const c2 = c1 + bw + 8;
+    const r1 = py + 160;
+    const r2 = py + 194;
+    const retry = won ? 'AGAIN' : 'RETRY';
+    if (won && info.nextId) {
+      this.button(ctx, 'next', c1, r1, bw, 30, 'NEXT', actions.next, { style: 'green' });
+      this.button(ctx, 'retry', c1, r2, bw, 30, retry, actions.retry, { style: 'blue' });
+      this.button(ctx, 'menu', c2, r2, bw, 30, 'LEVELS', actions.levels, { style: 'blue' });
+    } else {
+      this.button(ctx, 'retry', c1, r1, bw, 30, retry, actions.retry);
+      this.button(ctx, 'menu', c1, r2, pw - 16, 30, 'LEVELS', actions.levels, { style: 'blue' });
     }
-    this.button(ctx, 'retry', bx, by, bw, 30, won ? 'AGAIN' : 'RETRY', actions.retry, { style: hasNext ? 'blue' : 'primary' });
-    bx += bw + 8;
-    this.button(ctx, 'menu', bx, by, bw, 30, 'LEVELS', actions.levels, { style: 'blue' });
+    this.button(ctx, 'upgrade', c2, r1, bw, 30, 'UPGRADE', actions.garage, { style: 'flip' });
+    // A blinking "!" when the player has enough coins for an upgrade
+    const affordable = ['engine', 'fuel', 'tires'].some((k) => {
+      const l = save.upgrades[k] || 0;
+      return l < UPGRADES.cost.length && save.coins >= UPGRADES.cost[l];
+    });
+    if (affordable && Math.floor(t * 3) % 2 === 0) {
+      const bx = c2 + bw - 6;
+      const by = r1 - 6;
+      panel(ctx, bx - 1, by - 1, 14, 14, C.yellow, C.black);
+      drawText(ctx, '!', bx + 6, by + 2, { align: 'center', color: C.black, shadow: null });
+    }
   }
 
   rotate(ctx, view, t) {

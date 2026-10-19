@@ -14,7 +14,6 @@ export class Renderer {
     this.ctx = canvas.getContext('2d');
     this.sprites = sprites;
     this.patterns = {};
-    this.shade = document.createElement('canvas');
     this.setSize(480, 270);
   }
 
@@ -24,8 +23,6 @@ export class Renderer {
     this.canvas.width = W;
     this.canvas.height = H;
     this.ctx.imageSmoothingEnabled = false;
-    this.shade.width = W;
-    this.shade.height = H;
     this.tops = new Int16Array(W + 2);
     this.skyCache = {};
   }
@@ -191,9 +188,9 @@ export class Renderer {
       const local = (wx / 16) % 1;
       const spike = hash(cell, 77) > 0.45 ? Math.max(0, 1 - Math.abs(local - 0.5) * 2.4) * hash(cell, 78) * 26 : 0;
       const d = Math.round(12 + noise(wx / 40, 76) * 16 + spike);
-      ctx.fillStyle = '#0a0910';
+      ctx.fillStyle = '#100e20';
       ctx.fillRect(x, 0, 2, d);
-      ctx.fillStyle = '#2d2642';
+      ctx.fillStyle = '#3d3660';
       ctx.fillRect(x, d, 2, 1);
     }
   }
@@ -386,11 +383,22 @@ export class Renderer {
       ctx.fillRect(x - 24, beam - 3, 49, 1);
       ctx.fillStyle = C.dark;
       ctx.fillRect(x, beam + 1, 1, 6);
+      // Soft glow around the lamp
+      ctx.fillStyle = C.yellow;
+      for (const [r, a] of [
+        [22, 0.08],
+        [13, 0.12],
+      ]) {
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        ctx.arc(x + 0.5, beam + 10, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
       ctx.fillStyle = C.black;
       ctx.fillRect(x - 2, beam + 7, 5, 6);
       ctx.fillStyle = C.yellow;
       ctx.fillRect(x - 1, beam + 8, 3, 4);
-      l.sy = beam + 10;
     }
   }
 
@@ -489,45 +497,6 @@ export class Renderer {
       ctx.fillStyle = p.color;
       ctx.fillRect(Math.round(this.sx(p.x)), Math.round(this.sy(p.y)), p.size, p.size);
     }
-  }
-
-  // Cave darkness with light around the bike, its headlight and the lamps.
-  drawDarkness(theme, terrain, bike) {
-    if (!theme.darkness) return;
-    const { W, H } = this;
-    const g = this.shade.getContext('2d');
-    g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = 1;
-    g.clearRect(0, 0, W, H);
-    g.fillStyle = `rgba(4,3,10,${theme.darkness})`;
-    g.fillRect(0, 0, W, H);
-    g.globalCompositeOperation = 'destination-out';
-    g.fillStyle = '#000';
-    const light = (x, y, r) => {
-      for (const [k, a] of [
-        [1, 0.35],
-        [0.72, 0.65],
-        [0.45, 1],
-      ]) {
-        g.globalAlpha = a;
-        g.beginPath();
-        g.arc(x, y, r * k, 0, Math.PI * 2);
-        g.fill();
-      }
-    };
-    if (bike) {
-      const p = bike.chassis.getPosition();
-      light(this.sx(p.x), this.sy(p.y) - 8, 46);
-      const head = bike.worldPoint({ x: 3.2, y: 0.2 });
-      light(this.sx(head.x), this.sy(head.y), 58);
-    }
-    for (const l of terrain.lamps) {
-      const x = this.sx(l.x);
-      if (x > -60 && x < W + 60 && l.sy !== undefined) light(x, l.sy, 56);
-    }
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = 'source-over';
-    this.ctx.drawImage(this.shade, 0, 0);
   }
 
   // Everything except the bike.

@@ -33,15 +33,15 @@ export const THEMES = {
     ],
     music: 'mine',
   },
+  // Underground at night-time brightness: dim blue-purple, lit by lamps, nothing hidden.
   cave: {
-    sky: ['#0b0a12', '#100e1a', '#151223', '#1a162c'],
+    sky: ['#161430', '#1d1a3c', '#25224a', '#2e2a58'],
     ceiling: true,
-    darkness: 0.62,
     lamps: 22,
-    far: { type: 'cavewall', color: '#221d33', shade: '#1b172a' },
-    mid: { type: 'stalagmites', color: '#2d2642' },
-    ground: { top: '#8d86a0', mid: '#625b78', dark: '#433d57', tile: 'cave' },
-    dust: ['#625b78', '#8d86a0', '#433d57'],
+    far: { type: 'cavewall', color: '#2f2a4c', shade: '#272241' },
+    mid: { type: 'stalagmites', color: '#3d3660' },
+    ground: { top: '#b2acc8', mid: '#8a83a6', dark: '#5f5980', tile: 'cave' },
+    dust: ['#8a83a6', '#b2acc8', '#5f5980'],
     props: [
       ['rock', 50],
       ['crystal', 30],
